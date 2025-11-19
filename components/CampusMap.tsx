@@ -116,3 +116,6 @@ export default function CampusMap({ universities }: CampusMapProps) {
 
 
 
+
+
+

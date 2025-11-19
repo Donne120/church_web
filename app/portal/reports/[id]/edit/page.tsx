@@ -24,11 +24,29 @@ export default function EditReportPage() {
 
   async function loadData() {
     try {
-      // Get user session
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      // Check localStorage auth first (set by hardcoded login)
+      const isAuth = typeof window !== 'undefined' && localStorage.getItem('cysmf_authenticated') === 'true';
+      if (!isAuth) {
         router.push('/auth');
         return;
+      }
+
+      // Get user from localStorage
+      const userDataStr = typeof window !== 'undefined' ? localStorage.getItem('cysmf_user') : null;
+      let userId: string | null = null;
+      if (userDataStr) {
+        try {
+          const userData = JSON.parse(userDataStr);
+          userId = userData.username || userData.id || null;
+        } catch (e) {
+          console.error('Error parsing user data:', e);
+        }
+      }
+
+      // Also try to get Supabase session (for RLS queries)
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        userId = user.id;
       }
 
       // Fetch the report
@@ -44,8 +62,8 @@ export default function EditReportPage() {
         return;
       }
 
-      // Check if user owns this report
-      if (reportData.reporter_id !== user.id) {
+      // Check if user owns this report (skip if no userId available)
+      if (userId && reportData.reporter_id !== userId) {
         console.error('Unauthorized: You can only edit your own reports');
         router.push('/portal/reports');
         return;

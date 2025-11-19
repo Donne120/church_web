@@ -27,28 +27,57 @@ export default function JoinRequestsPage() {
 
   async function loadData() {
     try {
-      // Get user session
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      // Check localStorage auth first (set by hardcoded login)
+      const isAuth = typeof window !== 'undefined' && localStorage.getItem('cysmf_authenticated') === 'true';
+      if (!isAuth) {
         router.push('/auth');
         return;
       }
 
-      // Get user profile
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
+      // Try to get user from localStorage first
+      const userDataStr = typeof window !== 'undefined' ? localStorage.getItem('cysmf_user') : null;
+      if (userDataStr) {
+        try {
+          const userData = JSON.parse(userDataStr);
+          const localProfile = {
+            id: userData.username || 'admin',
+            full_name: userData.full_name || 'CYSMF Admin',
+            role: userData.role || 'ADMIN',
+            email: userData.email || userData.username || 'admin@cysmf.local',
+          };
+          setProfile(localProfile);
 
-      if (profileData) {
-        setProfile(profileData);
+          // Check if user is admin/secretariat
+          if (!['ADMIN', 'SECRETARIAT'].includes(localProfile.role)) {
+            toast.error('You do not have permission to view this page');
+            router.push('/portal');
+            return;
+          }
+        } catch (e) {
+          console.error('Error parsing user data:', e);
+        }
+      }
 
-        // Check if user is admin/secretariat
-        if (!['ADMIN', 'SECRETARIAT'].includes(profileData.role)) {
-          toast.error('You do not have permission to view this page');
-          router.push('/portal');
-          return;
+      // Also try to get Supabase session (for RLS queries)
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      // If Supabase user exists, fetch profile from database
+      if (user) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (profileData) {
+          setProfile(profileData);
+
+          // Check if user is admin/secretariat
+          if (!['ADMIN', 'SECRETARIAT'].includes(profileData.role)) {
+            toast.error('You do not have permission to view this page');
+            router.push('/portal');
+            return;
+          }
         }
       }
 

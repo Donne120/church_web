@@ -20,12 +20,15 @@ export default function NewReportPage() {
 
   async function loadData() {
     try {
-      // Get user session
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      // Check localStorage auth first (set by hardcoded login)
+      const isAuth = typeof window !== 'undefined' && localStorage.getItem('cysmf_authenticated') === 'true';
+      if (!isAuth) {
         router.push('/auth');
         return;
       }
+
+      // Also try to get Supabase session (for RLS queries)
+      const { data: { user } } = await supabase.auth.getUser();
 
       // Fetch universities
       const { data: universitiesData, error: universitiesError } = await supabase

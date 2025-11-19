@@ -36,23 +36,51 @@ export default function PortalDashboard() {
 
   async function loadDashboardData() {
     try {
-      // Get user session
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      // Check localStorage auth first (set by hardcoded login)
+      const isAuth = typeof window !== 'undefined' && localStorage.getItem('cysmf_authenticated') === 'true';
+      if (!isAuth) {
         router.push('/auth');
         return;
       }
 
-      // Get user profile
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-      
-      if (profileData) {
-        setProfile(profileData);
+      // Try to get user from localStorage first
+      let localStorageProfile: Profile | null = null;
+      const userDataStr = typeof window !== 'undefined' ? localStorage.getItem('cysmf_user') : null;
+      if (userDataStr) {
+        try {
+          const userData = JSON.parse(userDataStr);
+          localStorageProfile = {
+            id: userData.username || 'admin',
+            full_name: userData.full_name || 'CYSMF Admin',
+            role: userData.role || 'ADMIN',
+            email: userData.email || userData.username || 'admin@cysmf.local',
+          } as Profile;
+          setProfile(localStorageProfile);
+        } catch (e) {
+          console.error('Error parsing user data:', e);
+        }
       }
+
+      // Also try to get Supabase session (for RLS queries)
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      // If Supabase user exists, fetch profile from database
+      let profileData: Profile | null = null;
+      if (user) {
+        const { data: fetchedProfile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        
+        if (fetchedProfile) {
+          profileData = fetchedProfile;
+          setProfile(fetchedProfile);
+        }
+      }
+
+      // Get current profile (prefer Supabase, fallback to localStorage)
+      const currentProfile = profileData || localStorageProfile;
 
       // Fetch reports stats
       let reportsQuery = supabase
@@ -66,9 +94,9 @@ export default function PortalDashboard() {
       }
 
       // Filter by reporter if not admin/secretariat
-      if (profileData?.role === 'CAMPUS_LEADER') {
+      if (currentProfile?.role === 'CAMPUS_LEADER' && user) {
         reportsQuery = reportsQuery.eq('reporter_id', user.id);
-      } else if (profileData?.role === 'REGIONAL_LEADER') {
+      } else if (currentProfile?.role === 'REGIONAL_LEADER' && profileData?.region) {
         reportsQuery = reportsQuery.eq('region', profileData.region);
       }
 
@@ -179,7 +207,7 @@ export default function PortalDashboard() {
               <label className="text-sm font-medium mb-2 block">Month</label>
               <MonthPicker value={selectedMonth} onChange={setSelectedMonth} />
             </div>
-            {(profile?.role === 'ADMIN' || profile?.role === 'SECRETARIAT') && (
+            {profile && (profile.role === 'ADMIN' || profile.role === 'SECRETARIAT') && (
               <div>
                 <label className="text-sm font-medium mb-2 block">Region</label>
                 <Select value={selectedRegion} onValueChange={setSelectedRegion}>

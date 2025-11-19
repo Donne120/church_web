@@ -30,22 +30,43 @@ export default function ReportDetailPage() {
 
   async function loadReport() {
     try {
-      // Get user session
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      // Check localStorage auth first (set by hardcoded login)
+      const isAuth = typeof window !== 'undefined' && localStorage.getItem('cysmf_authenticated') === 'true';
+      if (!isAuth) {
         router.push('/auth');
         return;
       }
 
-      // Get user profile
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
+      // Try to get user from localStorage first
+      const userDataStr = typeof window !== 'undefined' ? localStorage.getItem('cysmf_user') : null;
+      if (userDataStr) {
+        try {
+          const userData = JSON.parse(userDataStr);
+          setProfile({
+            id: userData.username || 'admin',
+            full_name: userData.full_name || 'CYSMF Admin',
+            role: userData.role || 'ADMIN',
+            email: userData.email || userData.username || 'admin@cysmf.local',
+          });
+        } catch (e) {
+          console.error('Error parsing user data:', e);
+        }
+      }
+
+      // Also try to get Supabase session (for RLS queries)
+      const { data: { user } } = await supabase.auth.getUser();
       
-      if (profileData) {
-        setProfile(profileData);
+      // If Supabase user exists, fetch profile from database
+      if (user) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        
+        if (profileData) {
+          setProfile(profileData);
+        }
       }
 
       // Fetch the report
