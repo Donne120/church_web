@@ -6,7 +6,12 @@ const nextConfig: NextConfig = {
   
   // Optimize images
   images: {
-    domains: ['uhpmjlgvxcfvmrxzrspo.supabase.co'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'uhpmjlgvxcfvmrxzrspo.supabase.co',
+      },
+    ],
     formats: ['image/avif', 'image/webp'],
   },
 
@@ -14,9 +19,6 @@ const nextConfig: NextConfig = {
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
   },
-
-  // Enable SWC minification
-  swcMinify: true,
 
   // Optimize production builds
   productionBrowserSourceMaps: false,

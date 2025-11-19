@@ -161,7 +161,7 @@ export default function CampusPage() {
           </div>
         ) : (
           <div className="space-y-8">
-            {Object.entries(groupedByRegion).map(([region, unis]) => (
+            {Object.entries(groupedByRegion).map(([region, unis]: [string, any[]]) => (
               <div key={region}>
                 <h2 className="text-2xl font-bold text-[#0D2B66] mb-4 flex items-center gap-2">
                   <MapPin className="h-6 w-6" />
