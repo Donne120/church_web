@@ -157,3 +157,4 @@ COMMENT ON FUNCTION get_campuses_without_recent_events IS 'Returns campuses that
 
 
 
+
